@@ -85,7 +85,7 @@ struct sensor_regs {
 
 #define I2C_ADDR 0x0F
 
-#define CSI_IMAGE_ID 0x24
+#define CSI_IMAGE_ID 0x1E //0x24
 
 void signal_callback_handler(int);
 
@@ -772,7 +772,7 @@ int main ( int argc, char *argv[] )
    /* CALL THE SIGNAL HANDLER FUNCTION ON A Ctrl-C EXIT */
    signal(SIGINT, signal_callback_handler);
 
-   i2c_fd = open("/dev/i2c-0", O_RDWR);
+   /*i2c_fd = open("/dev/i2c-0", O_RDWR);
    if (!i2c_fd)
    {
       vcos_log_error("Couldn't open I2C device");
@@ -782,7 +782,7 @@ int main ( int argc, char *argv[] )
    {
       vcos_log_error("Failed to set I2C address");
       return -1;
-   }
+   }*/
 
    bcm_host_init();
    vcos_log_register("RaspiRaw", VCOS_LOG_CATEGORY);
@@ -793,6 +793,7 @@ int main ( int argc, char *argv[] )
       vcos_log_error("Failed to create rawcam");
       return -1;
    }
+
    status = mmal_component_create("vc.ril.video_render", &render);
    if(status != MMAL_SUCCESS)
    {
@@ -830,6 +831,15 @@ int main ( int argc, char *argv[] )
    encoder_output = encoder->output[0];
    input = render->input[0];
 
+   int cam_num = 0;
+   vcos_log_error("Set camera_num to %d", cam_num);
+   status = mmal_port_parameter_set_int32(output, MMAL_PARAMETER_CAMERA_NUM, cam_num);
+   if (status != MMAL_SUCCESS)
+   {
+      vcos_log_error("Failed to set camera_num");
+      goto component_destroy;
+   }
+
    // setup CSI configs on rawcam
    status = mmal_port_parameter_get(output, &rx_cfg.hdr);
    if(status != MMAL_SUCCESS)
@@ -837,22 +847,10 @@ int main ( int argc, char *argv[] )
       vcos_log_error("Failed to get cfg");
       goto component_destroy;
    }
+
    rx_cfg.image_id = CSI_IMAGE_ID;
-
-
-   u8 _s_v_format = i2c_rd8(i2c_fd, VI_STATUS) & 0x0F;
-   vcos_log_error("VI_STATUS to select cfg.data_lanes: %u", _s_v_format);
-
-   if (_s_v_format < 12)
-   {
-      rx_cfg.data_lanes = 1; 
-      vcos_log_error("rx_cfg.data_lanes = 1");
-   }
-   else
-   {
-      rx_cfg.data_lanes = 2; 
-      vcos_log_error("rx_cfg.data_lanes = 2");
-   }
+   rx_cfg.data_lanes = 2; 
+   vcos_log_error("rx_cfg.data_lanes = 2");
 
 
 
@@ -914,11 +912,11 @@ int main ( int argc, char *argv[] )
       goto component_disable;
    }
 
-   start_camera_streaming(i2c_fd);
+   //start_camera_streaming(i2c_fd);
    vcos_sleep(500);  //Give a chance to detect signal
    vcos_log_error("Waiting to detect signal...");
 
-   int count=0;
+   /*int count=0;
    while((count<20) && (no_sync(i2c_fd) || no_signal(i2c_fd)))
    {
       vcos_sleep(200);
@@ -944,26 +942,29 @@ int main ( int argc, char *argv[] )
       playthroughs++;
       vcos_log_error("First playthrough, Goto Loop");
       goto loop;
-   }
+   }*/
 
 
    /* frame interval in milliseconds * 10
     * Require SYS_FREQ0 and SYS_FREQ1 are precisely set */
-   frame_interval = ((i2c_rd8(i2c_fd, FV_CNT_HI) & 0x3) << 8) +
+   /*frame_interval = ((i2c_rd8(i2c_fd, FV_CNT_HI) & 0x3) << 8) +
       i2c_rd8(i2c_fd, FV_CNT_LO);
    fps =  (frame_interval > 0) ?
              (10000/frame_interval) : 0;
    vcos_log_error("Signal is %u x %u, frm_interval %u, so %u fps", width, height, frame_interval, fps);
-   vcos_log_error("Frame w x h is %u x %u", frame_width, frame_height);
-
+   vcos_log_error("Frame w x h is %u x %u", frame_width, frame_height);*/
+   
+   width = 1280;
+   height = 720;
+   fps = 0;
 
    output->format->es->video.crop.width = width;
    output->format->es->video.crop.height = height;
    output->format->es->video.width = VCOS_ALIGN_UP(width, 32); //VCOS_ALIGN_UP(WIDTH, 32);
    output->format->es->video.height = VCOS_ALIGN_UP(height, 16); //VCOS_ALIGN_UP(HEIGHT, 16);
-   output->format->es->video.frame_rate.num = 10000;
-   output->format->es->video.frame_rate.den = frame_interval ? frame_interval : 10000;
-   output->format->encoding = ENCODING;
+   output->format->es->video.frame_rate.num = fps;
+   output->format->es->video.frame_rate.den = 1;
+   output->format->encoding = MMAL_ENCODING_YUYV;
    status = mmal_port_format_commit(output);
 
    if(status != MMAL_SUCCESS)
@@ -1208,7 +1209,7 @@ int main ( int argc, char *argv[] )
 
    // Setup complete
    vcos_log_error("All done. Start streaming...");
-   write_regs(i2c_fd, cmds3, NUM_REGS_CMD3);
+   //write_regs(i2c_fd, cmds3, NUM_REGS_CMD3);
    vcos_log_error("View!");
 
    if (sleep_duration > 0)
@@ -1229,7 +1230,7 @@ int main ( int argc, char *argv[] )
    running = 0;
 
    vcos_log_error("Stopping streaming...");
-   stop_camera_streaming(i2c_fd);
+   //stop_camera_streaming(i2c_fd);
 
    playthroughs = 0;
 
