@@ -78,7 +78,7 @@ struct sensor_regs {
    uint8_t  data;
 };
 
-#define ENCODING MMAL_ENCODING_BGR24 //MMAL_ENCODING_I420// //MMAL_ENCODING_YUYV
+#define ENCODING MMAL_ENCODING_YUYV //MMAL_ENCODING_BGR24 //MMAL_ENCODING_I420
 
 #define UNPACK MMAL_CAMERA_RX_CONFIG_UNPACK_NONE
 #define PACK MMAL_CAMERA_RX_CONFIG_PACK_NONE
@@ -964,7 +964,7 @@ int main ( int argc, char *argv[] )
    output->format->es->video.height = VCOS_ALIGN_UP(height, 16); //VCOS_ALIGN_UP(HEIGHT, 16);
    output->format->es->video.frame_rate.num = fps;
    output->format->es->video.frame_rate.den = 1;
-   output->format->encoding = MMAL_ENCODING_YUYV;
+   output->format->encoding = ENCODING;
    status = mmal_port_format_commit(output);
 
    if(status != MMAL_SUCCESS)
